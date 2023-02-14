@@ -1,0 +1,330 @@
+---
+title: "A1"
+output:
+  html_document:
+    toc: yes
+    toc_depth: '2'
+    df_print: paged
+  html_notebook:
+    toc: yes
+    toc_depth: 2
+bibliography: 'A1.bib'
+---
+
+# Downloading required packages
+
+[@geometadb]
+[@knitr]
+[@edger]
+[@biocmanager]
+[@biomart]
+```{r, message= FALSE}
+if (!requireNamespace("GEOmetadb", quietly = TRUE))
+  BiocManager::install("GEOmetadb")
+
+if (!requireNamespace("knitr", quietly = TRUE))
+  install.packages("knitr")
+
+if (!require("edgeR", quietly = TRUE))
+  BiocManager::install("edgeR")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+if (!requireNamespace("biomaRt", quietly = TRUE))
+  BiocManager::install("biomaRt")
+
+```
+
+# Calling required packages
+
+```{r, message=FALSE}
+library(BiocManager)
+library(GEOmetadb)
+library(knitr)
+library(edgeR)
+library(biomaRt)
+```
+
+# Download the data
+## GSE152074 raw data supplemntary file downloaded
+
+```{r, message=FALSE}
+sfiles = getGEOSuppFiles('GSE152075')
+fnames = rownames(sfiles)
+# there is only one supplemental file
+readData = read.table(fnames[1],header=TRUE, check.names = TRUE)
+head(readData)
+
+```
+
+# Contact Information
+```{r, message=FALSE}
+gse <- getGEO("GSE152075",GSEMatrix=FALSE)
+
+kable(data.frame(head(Meta(gse))), format = "html")
+```
+
+# Assess
+
+Checking original data dimensions before cleaning
+```{r, message=FALSE}
+#How many genes do we have
+dim(readData)
+
+
+```
+
+Setting first column as gene id for future format purposes
+```{r}
+#Place rownames in first column for future format purposes
+inter <- data.frame("HUGO" = rownames(readData))
+geneData <- cbind(inter$HUGO, readData)
+colnames(geneData)[1] <- "HUGO"
+```
+
+Check for any duplicates in gene ID
+```{r, include=FALSE}
+rawGeneCount <- sort(table(geneData$HUGO),
+                                        decreasing = TRUE)
+
+kable(rawGeneCount[
+  which(rawGeneCount>1)], 
+  format="html")
+```
+
+# Clean
+Remove any outliers that does not have at least 1 read per million in n of the samples.
+Denoting n as the smallest group of replicates which is the control group of 53.
+Using n = 53 conduct the removal of low counts.
+```{r}
+#translate out counts into counts per millison using 
+#the edgeR package function cpm
+cpms = cpm(geneData[,2:485])
+rownames(cpms) <- geneData[,1]
+# get rid of low counts
+keep = rowSums(cpms >1) >=53
+geneData_exp_filtered = geneData[keep,]
+nrow(geneData) - nrow(geneData_exp_filtered)
+```
+
+Remove version numbers if they exists on gene id(HUGO) column.
+This makes it easier for mapping later on.
+```{r}
+geneData_exp_filtered[,1] <- gsub("\\.[0-9]", "", geneData_exp_filtered[,1])
+```
+
+# Map
+```{r}
+#Mapping the name using biomatr
+# list available gene annotation databases
+bio <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+
+# convert column of gene IDs to Hugo symbols
+geneMapping <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol"),
+                     mart = bio,
+                     filters = "hgnc_symbol",
+                     values = geneData_exp_filtered[,1])
+
+
+```
+Combine the mapped gene data to original data
+```{r}
+#Merge the data
+mergedData <- merge(geneData_exp_filtered, geneMapping, by.x = 1, by.y = 2)
+#remove duplicate rows in the gene data
+mergedDataNoDup <- mergedData[!duplicated(mergedData[,1:485]),]
+
+
+
+```
+
+Check for duplicates
+```{r}
+summarized_gene_counts_filtered <- sort(table(mergedDataNoDup$HUGO),
+                                        decreasing = TRUE)
+
+kable(summarized_gene_counts_filtered[
+  which(summarized_gene_counts_filtered>1)[1:10]], 
+  format="html")
+```
+
+
+# Apply Normalization
+Set seed for randomly sampling data for boxplot and density graphs before and after normalization.
+```{r}
+set.seed(12345)
+randomSamplePOS <- sample(mergedDataNoDup[2:431], 10)
+randomSampleNEG <- sample(mergedDataNoDup[432:485], 10)
+randomSample <- cbind(randomSamplePOS,randomSampleNEG, mergedDataNoDup$ensembl_gene_id)
+
+```
+
+Define groups to use in normalization
+```{r}
+samples <- data.frame(lapply(colnames(randomSample[1:20]), 
+        FUN=function(x){unlist(strsplit(x, 
+                        split = "_"))[c(2,1)]}))
+colnames(samples) <- colnames(randomSample[1:20])
+rownames(samples) <- c("patients","cell_type")
+samples <- data.frame(t(samples))
+
+```
+
+
+
+Applying TMM to data
+```{r}
+
+filtered_data_matrix <- as.matrix(randomSample[1:20])
+rownames(filtered_data_matrix) <- randomSample$`mergedDataNoDup$ensembl_gene_id`
+d = DGEList(counts=filtered_data_matrix, group=samples$cell_type)
+
+d = calcNormFactors(d)
+
+normalized_counts <- cpm(d)
+```
+
+## Not normalized plots
+Boxplot for non-normalized data
+```{r}
+data2plot <- log2(cpm(randomSample[,1:20]))
+boxplot(data2plot, xlab = "Samples", ylab = "log2 CPM", 
+        las = 2, cex = 0.5, cex.lab = 0.5,
+        cex.axis = 0.5, main = "RNASeq Samples")
+#draw the median on each box plot
+abline(h = median(apply(data2plot, 2, median)), 
+       col = "green", lwd = 0.6, lty = "dashed")
+```
+Density plot for non-normalized data
+
+```{r}
+counts_density <- apply(log2(cpm(randomSample[1:20])), 
+                        2, density)
+  #calculate the limits across all the samples
+    xlim <- 0; ylim <- 0
+    for (i in 1:length(counts_density)) {
+      xlim <- range(c(xlim, counts_density[[i]]$x)); 
+      ylim <- range(c(ylim, counts_density[[i]]$y))
+    }
+    cols <- rainbow(length(counts_density))
+    ltys <- rep(1, length(counts_density))
+    #plot the first density plot to initialize the plot
+    plot(counts_density[[1]], xlim=xlim, ylim=ylim, type="n", 
+         ylab="Smoothing density of log2-CPM", 
+         main="", cex.lab = 0.85)
+    #plot each line
+    for (i in 1:length(counts_density)) 
+      lines(counts_density[[i]], col=cols[i], lty=ltys[i])
+    #create legend
+    legend("topright", colnames(data2plot), legend = colnames(randomSample[1:20]),
+           col=cols, lty=ltys, cex=0.75, 
+           border ="blue",  text.col = "green4", 
+           merge = TRUE, bg = "gray90")
+```
+
+## Normalized Plots
+Define groups for normalized data
+
+Barplot for normalized data
+```{r}
+data2plotNorm <- log2(normalized_counts)
+boxplot(data2plotNorm, xlab = "Samples", ylab = "log2 TMM", 
+        las = 2, cex = 0.5, cex.lab = 0.5,
+        cex.axis = 0.5, main = "RNASeq Samples")
+#draw the median on each box plot
+abline(h = median(apply(data2plotNorm, 2, median)), 
+       col = "green", lwd = 0.6, lty = "dashed")
+```
+
+Density plot for normalized data
+```{r}
+countsDensityNorm <- apply(log2(normalized_counts), 
+                        2, density)
+  #calculate the limits across all the samples
+    xlim <- 0; ylim <- 0
+    for (i in 1:length(countsDensityNorm)) {
+      xlim <- range(c(xlim, countsDensityNorm[[i]]$x)); 
+      ylim <- range(c(ylim, countsDensityNorm[[i]]$y))
+    }
+    cols <- rainbow(length(countsDensityNorm))
+    ltys <- rep(1, length(countsDensityNorm))
+    #plot the first density plot to initialize the plot
+    plot(countsDensityNorm[[1]], xlim=xlim, ylim=ylim, type="n", 
+         ylab="Smoothing density of log2-TMM", 
+         main="", cex.lab = 0.85)
+    #plot each line
+    for (i in 1:length(countsDensityNorm)) 
+      lines(countsDensityNorm[[i]], col=cols[i], lty=ltys[i])
+    #create legend
+    legend("topright", colnames(data2plotNorm), legend = colnames(normalized_counts),  
+           col=cols, lty=ltys, cex=0.75, 
+           border ="blue",  text.col = "green4", 
+           merge = TRUE, bg = "gray90")
+```
+
+Define groups for MDS plot
+```{r}
+samplesNorm <- data.frame(lapply(colnames(normalized_counts), 
+        FUN=function(x){unlist(strsplit(x, 
+                        split = "_"))[c(2,1)]}))
+colnames(samplesNorm) <- colnames(normalized_counts)
+rownames(samplesNorm) <- c("patients","cell_type")
+samplesNorm <- data.frame(t(samplesNorm))
+
+```
+
+
+MDS for normalized data
+```{r}
+plotMDS(d, labels=rownames(samplesNorm),
+  col = c("darkgreen","blue")[factor(samplesNorm$cell_type)])
+
+```
+
+# Final dataset
+Formatting final dataset
+```{r}
+rownames(mergedDataNoDup) <- mergedDataNoDup$HUGO
+
+dim(mergedDataNoDup)
+```
+
+**Important notes about code idea**
+The normalization was done with only the 20 randomly sampled data because a boxplot, and density plot with over 400 samples was too chaotic.
+The sample takes 10 control, and 10 case randomly from the whole dataset. 
+Because of this only 20 samples were normalized for the analysis of plots.
+
+**What are the control and test conditions of the dataset?**
+The control is the NEG columns in the dataset that are not effected by SARS-COV-2, and the test is the POS are patients with SARS-COV-2 positive results from nasopharyngeal swabs.
+
+
+**Why is the dataset of interest to you?**
+My current BCB330Y1 research is about genetic association studies with SARS-Cov-2. I wanted to learn more about the topic, and use my time efficiently to expand my knowledge in this area.
+
+**Were there expression values that were not unique for specific genes? How did you handle these?**
+There were no cases of expression values that were not unique for specific genes. However there were cases where there were multiple Ensemblid for a single gene id given in the raw data.
+Took care of this by only keeping one Ensemblid and discarding the rest.
+
+**Were there expression values that could not be mapped to current HUGO symbols?**
+There were about 1000 genes that did not map to HUGO symbols however out of 20,000 genes that passed the initial filtering process it is not significant.
+
+**How many outliers were removed?**
+14855 genes were removed with low counts that removed genes without at least 1 read per million in the sample. 
+
+**How did you handle replicates?**
+Replicates in the control and test conditions were all used in the data. However a majority were cut in the low counts filtering process.
+
+**What is the final coverage of your dataset?**
+The final dataset has 19291 genes, with 484 samples.53 control, and 431 case samples.
+
+
+
+# References
+
+All Code and statistics were heavily taken from **Lecture 4 - Exploring the data and Lecture 4 - Exploring the data and
+basics of Normalization basics of Normalization** by Ruth Isserlin.
+
+
+[@lieberman2020vivo]
+
