@@ -75,6 +75,12 @@ dim(readData)
 
 ```
 
+Add 1 to all values of data so later on when conducting log2(cpm) we can avoid negative infinity values. (Advised by Professor Isserlin)
+```{r, message=FALSE}
+readData <- readData + 1
+```
+
+
 Setting first column as gene id for future format purposes
 ```{r}
 #Place rownames in first column for future format purposes
@@ -83,10 +89,11 @@ geneData <- cbind(inter$HUGO, readData)
 colnames(geneData)[1] <- "HUGO"
 ```
 
+
+
 Check for any duplicates in gene ID
 ```{r, include=FALSE}
-rawGeneCount <- sort(table(geneData$HUGO),
-                                        decreasing = TRUE)
+rawGeneCount <- sort(table(geneData$HUGO),decreasing = TRUE)
 
 kable(rawGeneCount[
   which(rawGeneCount>1)], 
@@ -115,7 +122,7 @@ geneData_exp_filtered[,1] <- gsub("\\.[0-9]", "", geneData_exp_filtered[,1])
 ```
 
 # Map
-```{r}
+```{r, message=FALSE}
 #Mapping the name using biomatr
 # list available gene annotation databases
 bio <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
@@ -188,7 +195,7 @@ normalized_counts <- cpm(d)
 ## Not normalized plots
 Boxplot for non-normalized data
 ```{r}
-data2plot <- log2(cpm(randomSample[,1:20]))
+data2plot <- log2(cpm(randomSample[1:20]))
 boxplot(data2plot, xlab = "Samples", ylab = "log2 CPM", 
         las = 2, cex = 0.5, cex.lab = 0.5,
         cex.axis = 0.5, main = "RNASeq Samples")
@@ -196,7 +203,8 @@ boxplot(data2plot, xlab = "Samples", ylab = "log2 CPM",
 abline(h = median(apply(data2plot, 2, median)), 
        col = "green", lwd = 0.6, lty = "dashed")
 ```
-Density plot for non-normalized data
+ 
+ Density plot for non-normalized data
 
 ```{r}
 counts_density <- apply(log2(cpm(randomSample[1:20])), 
