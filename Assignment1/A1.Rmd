@@ -101,7 +101,8 @@ kable(rawGeneCount[
 ```
 
 # Clean
-Remove any outliers that does not have at least 1 read per million in n of the samples.
+Remove any outliers that does not have at least 2 read per million in n of the samples.
+We set this as 2 since we add 1 to all of our dataset in the beginning of the code to have better plots.
 Denoting n as the smallest group of replicates which is the control group of 53.
 Using n = 53 conduct the removal of low counts.
 ```{r}
@@ -110,7 +111,7 @@ Using n = 53 conduct the removal of low counts.
 cpms = cpm(geneData[,2:485])
 rownames(cpms) <- geneData[,1]
 # get rid of low counts
-keep = rowSums(cpms >1) >=53
+keep = rowSums(cpms >2) >=53
 geneData_exp_filtered = geneData[keep,]
 nrow(geneData) - nrow(geneData_exp_filtered)
 ```
@@ -318,13 +319,13 @@ Took care of this by only keeping one Ensemblid and discarding the rest.
 There were about 1000 genes that did not map to HUGO symbols however out of 20,000 genes that passed the initial filtering process it is not significant.
 
 **How many outliers were removed?**
-14855 genes were removed with low counts that removed genes without at least 1 read per million in the sample. 
+20,752 genes were removed with low counts that removed genes without at least 1 read per million in the sample. 
 
 **How did you handle replicates?**
 Replicates in the control and test conditions were all used in the data. However a majority were cut in the low counts filtering process.
 
 **What is the final coverage of your dataset?**
-The final dataset has 19291 genes, with 484 samples.53 control, and 431 case samples.
+The final dataset has 14489 genes, with 484 samples.53 control, and 431 case samples.
 
 
 
