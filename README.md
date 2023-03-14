@@ -9,4 +9,4 @@ https://github.com/bcb420-2023/JaeHyung_Jung/blob/main/Assignment1/A1.html
 ## Assignment 1
 ### HTML
 
-https://github.com/bcb420-2023/JaeHyung_Jung/blob/main/Assignment2/A2.html
+https://github.com/bcb420-2023/JaeHyung_Jung/blob/main/A2_JaeHyungJung.html

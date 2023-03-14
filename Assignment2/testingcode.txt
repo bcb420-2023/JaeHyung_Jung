@@ -1,1 +1,0 @@
-docker run --rm -it -v ${PWD}/Documents/School/BCB420:/Home/rstudio/projects --user rstudio risserlin/bcb420-base-image:winter2023 /usr/local/bin/R -e "rmarkdown::render('/Home/rstudio/projects/JaeHyung_Jung/Assignment2/A2.Rmd',output_file='/Home/rstudio/projects/JaeHyung_Jung/Assignment2/A2.html')" > output
