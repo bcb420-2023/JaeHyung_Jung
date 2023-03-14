@@ -1,0 +1,716 @@
+---
+title: "A2"
+output:
+  html_document:
+    toc: yes
+    toc_depth: '2'
+    df_print: paged
+  html_notebook:
+    toc: yes
+    toc_depth: 2
+bibliography: 'A2.bib'
+---
+#Normalization from Assignment 1
+## Downloading required packages
+
+[@geometadb]
+[@knitr]
+[@edger]
+[@biocmanager]
+[@biomart]
+```{r, message= FALSE}
+if (!requireNamespace("GEOmetadb", quietly = TRUE))
+  BiocManager::install("GEOmetadb")
+
+if (!requireNamespace("knitr", quietly = TRUE))
+  install.packages("knitr")
+
+if (!require("edgeR", quietly = TRUE))
+  BiocManager::install("edgeR")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+if (!requireNamespace("biomaRt", quietly = TRUE))
+  BiocManager::install("biomaRt")
+
+if (!requireNamespace("ComplexHeatmap", quietly = TRUE))
+  BiocManager::install("ComplexHeatmap")
+
+if (!requireNamespace("circlize", quietly = TRUE))
+  BiocManager::install("circlize")
+
+if (!requireNamespace("ggplot2", quietly = TRUE))
+  install.packages("ggplot2")
+
+if (!requireNamespace("ggrepel", quietly = TRUE))
+  install.packages("ggrepel")
+
+```
+
+## Calling required packages
+
+```{r, message=FALSE}
+library(BiocManager)
+library(GEOmetadb)
+library(knitr)
+library(edgeR)
+library(biomaRt)
+library(ComplexHeatmap)
+library(circlize)
+library(ggplot2)
+library(ggrepel)
+```
+
+## Download the data
+### GSE152074 raw data supplemntary file downloaded
+
+```{r, message=FALSE}
+sfiles = getGEOSuppFiles('GSE152075')
+fnames = rownames(sfiles)
+# there is only one supplemental file
+readData = read.table(fnames[1],header=TRUE, check.names = TRUE)
+```
+
+## Assess
+
+Add 1 to all values of data so later on when conducting log2(cpm) we can avoid negative infinity values. (Advised by Professor Isserlin)
+```{r, message=FALSE}
+readData <- readData + 1
+```
+
+
+Setting first column as gene id for future format purposes
+```{r}
+#Place rownames in first column for future format purposes
+inter <- data.frame("HUGO" = rownames(readData))
+geneData <- cbind(inter$HUGO, readData)
+colnames(geneData)[1] <- "HUGO"
+```
+
+## Clean
+Remove any outliers that does not have at least 2 read per million in n of the samples.
+We set this as 2 since we add 1 to all of our dataset in the beginning of the code to have better plots.
+Denoting n as the smallest group of replicates which is the control group of 53.
+Using n = 53 conduct the removal of low counts.
+```{r}
+#translate out counts into counts per millison using 
+#the edgeR package function cpm
+cpms = cpm(geneData[,2:485])
+rownames(cpms) <- geneData[,1]
+# get rid of low counts
+keep = rowSums(cpms >2) >=53
+geneData_exp_filtered = geneData[keep,]
+```
+
+Remove version numbers if they exists on gene id(HUGO) column.
+This makes it easier for mapping later on.
+```{r}
+geneData_exp_filtered[,1] <- gsub("\\.[0-9]", "", geneData_exp_filtered[,1])
+```
+
+## Map
+```{r, message=FALSE}
+#Mapping the name using biomatr
+# list available gene annotation databases
+bio <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+conversion_stash <- "geneMapping.rds"
+if(file.exists(conversion_stash)){
+  geneMapping <- readRDS(conversion_stash)
+} else{
+# convert column of gene IDs to Hugo symbols
+geneMapping <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol"),
+                     mart = bio,
+                     filters = "hgnc_symbol",
+                     values = geneData_exp_filtered[,1])
+saveRDS(geneMapping, conversion_stash)
+}
+```
+
+Combine the mapped gene data to original data
+```{r}
+#Merge the data
+mergedData <- merge(geneData_exp_filtered, geneMapping, by.x = 1, by.y = 2)
+#remove duplicate rows in the gene data
+mergedDataNoDup <- mergedData[!duplicated(mergedData[,1:485]),]
+
+```
+
+## Apply Normalization
+Randomly sample data to reduce the size of sample. Original sample is too large
+leading to computation errors due to the limitation of author's computer.
+```{r}
+
+set.seed(12345)
+randomSamplePOS <- sample(mergedDataNoDup[2:431], 25)
+randomSampleNEG <- sample(mergedDataNoDup[432:485], 25)
+randomSample <- cbind(randomSamplePOS,randomSampleNEG, mergedDataNoDup$ensembl_gene_id, mergedDataNoDup$HUGO)
+
+
+```
+
+Define groups to use in normalization
+```{r}
+
+samples <- data.frame(lapply(colnames(randomSample[1:50]), 
+        FUN=function(x){unlist(strsplit(x, 
+                        split = "_"))[c(2,1)]}))
+colnames(samples) <- colnames(randomSample[1:50])
+rownames(samples) <- c("patients","cell_type")
+samples <- data.frame(t(samples))
+
+```
+
+
+```{r}
+'
+samples <- data.frame(lapply(colnames(mergedDataNoDup[2:485]), 
+        FUN=function(x){unlist(strsplit(x, 
+                        split = "_"))[c(2,1)]}))
+colnames(samples) <- colnames(mergedDataNoDup[2:485])
+rownames(samples) <- c("patients","cell_type")
+samples <- data.frame(t(samples))
+'
+```
+
+
+Applying TMM to data
+```{r}
+
+filtered_data_matrix <- as.matrix(randomSample[1:50])
+rownames(filtered_data_matrix) <- randomSample$`mergedDataNoDup$ensembl_gene_id`
+d = DGEList(counts=filtered_data_matrix, group=samples$cell_type)
+
+d = calcNormFactors(d)
+
+normalized_counts <- cpm(d)
+#add columns of ensembl and hgnc id
+
+normalized_count_data = data.frame(normalized_counts)
+normalized_count_data$ensembl_gene_id <- mergedDataNoDup$ensembl_gene_id
+normalized_count_data$hgnc_symbol <- mergedDataNoDup$HUGO
+
+
+#This is a duplicate ensembl id that is giving errors when running code.
+normalized_count_data <- normalized_count_data[-c(1902),]
+```
+
+
+```{r}
+plotMDS(d, labels=rownames(samples),
+ col = c("darkgreen","blue")[factor(samples$cell_type)])
+```
+
+#Dispersion
+
+```{r}
+model_design <- model.matrix(~samples$cell_type+0)
+d <- estimateDisp(d, model_design)
+```
+Graphing the BCV
+```{r}
+plotBCV(d,col.tagwise = "black",col.common = "red",)
+```
+
+```{r}
+plotMeanVar(d, show.raw.vars = TRUE,
+ show.tagwise.vars=TRUE, NBline=TRUE, 
+ show.ave.raw.vars = TRUE,show.binned.common.disp.vars = TRUE)
+```
+
+# Differential Gene Expression
+
+Answer the following questions.
+1. Calculate p-values for each of the genes in your expression set. How many genes were significantly differential expressed? What thresholds did you use and why?
+2. Multiple hypothesis testing - correct your p-values using a multiple hypothesis correction method. Which method did you use? And Why? How many genes passed correction?
+3. Show the amount of differential expressed genes using an MA Plot or a Volcano plot. Highlight genes of interest.
+4. Visualize your top hits using a heat map. Do you conditions cluster together? Explain why or why not.
+
+## 1. 2. Calculate P-Value, and Multiple hypothesis testing
+## LIMMA
+p-value calculation using LIMMA
+```{r}
+model_design <- model.matrix(~ samples$cell_type )
+```
+
+### Patient Variability
+Not taking into account patient variability
+```{r}
+
+expressionMatrix <- as.matrix(normalized_count_data[,1:50])
+rownames(expressionMatrix) <- 
+  normalized_count_data$ensembl_gene_id
+colnames(expressionMatrix) <- 
+  colnames(normalized_count_data)[1:50]
+minimalSet <- ExpressionSet(assayData=expressionMatrix)
+
+#Fit our data to model
+fit <- lmFit(minimalSet, model_design)
+
+```
+
+"Apply empircal bayes to compute differential expression for the above described model"
+```{r}
+fit2 <- eBayes(fit,trend=TRUE)
+```
+
+
+
+```{r}
+topfit <- topTable(fit2, 
+                   coef=ncol(model_design),
+                   adjust.method = "BH",
+                   number = nrow(expressionMatrix))
+#merge hgnc names to topfit table
+output_hits <- merge(normalized_count_data[,51:52],
+                     topfit,
+                     by.y=0,by.x=1,
+                     all.y=TRUE)
+#sort by pvalue
+output_hits <- output_hits[order(output_hits$P.Value),]
+```
+
+
+```{r}
+#number of genes that passed the p-value threshold
+#low values not in our data but that could result means the variation in biological variation in patients is different
+length(which(output_hits$P.Value < 0.05))
+#How many genes passed correction
+length(which(output_hits$adj.P.Val < 0.05))
+```
+
+
+Taking into account Patient variability
+```{r}
+model_design_pat <- model.matrix(
+  ~ samples$patients + samples$cell_type)
+```
+
+```{r}
+fit_pat <- lmFit(minimalSet, model_design_pat)
+```
+
+
+```{r}
+fit2_pat <- eBayes(fit_pat,trend=TRUE)
+
+topfit_pat <- topTable(fit2_pat, 
+                   coef=ncol(model_design_pat),
+                   adjust.method = "BH",
+                   number = nrow(expressionMatrix))
+#merge hgnc names to topfit table
+output_hits_pat <- merge(normalized_count_data[,51:52],
+                         topfit_pat,by.y=0,by.x=1,all.y=TRUE)
+#sort by pvalue
+output_hits_pat <- output_hits_pat[order(output_hits_pat$P.Value),]
+```
+
+```{r}
+length(which(output_hits_pat$P.Value < 0.05))
+length(which(output_hits_pat$adj.P.Val < 0.05))
+```
+
+## QLF
+
+```{r}
+d = DGEList(counts=filtered_data_matrix, group=samples$cell_type)
+```
+```{r}
+d <- estimateDisp(d, model_design_pat)
+```
+
+```{r}
+fit <- glmQLFit(d, model_design_pat)
+```
+
+```{r}
+kable(model_design_pat[1:10,1:5], type="html") %>%
+  row_spec(0, angle = -45)
+```
+
+```{r}
+qlf.pos_vs_neg <- glmQLFTest(fit, coef='samples$cell_typePOS')
+kable(topTags(qlf.pos_vs_neg), type="html",row.names = FALSE)
+```
+how many genes pass 0.05 threshold
+how many genes pass correction
+
+P-values were corrected using Quasilikelihood method.
+Quasilikelihood is better becacuse it is tailored towards RNAseq data
+
+```{r}
+qlf_output_hits <- topTags(qlf.pos_vs_neg,sort.by = "PValue",
+                           n = nrow(normalized_count_data))
+length(which(qlf_output_hits$table$PValue < 0.05))
+length(which(qlf_output_hits$table$FDR < 0.05))
+```
+
+
+### Answer to question
+LIMMA
+1.Genes Significantly expressed(Not taking into account patient variability): 2892
+Genes Significantly expressed(Taking into account patient variability): 1325
+Threshold: 0.05; Used a globally accepted threshold value good for general purposed even in RNASEQ
+
+2. Genes passed correction (Not taking into account patient variability): 473
+Genes passed correction (Taking into account patient variability): 0
+
+QLF
+1.Genes Significantly expressed: 1569
+Threshold: 0.05; Used a globally accepted threshold value good for general purposed even in RNASEQ
+
+2.Genes passed correction: 276
+
+
+## 3. Volcano plot
+code copied from https://biocorecrg.github.io/CRG_RIntroduction/volcano-plots.html
+```{r, message=FALSE}
+volcanoData <- qlf_output_hits$table
+volcanoData$geneName <- normalized_count_data$hgnc_symbol
+volcanoData$regulated <- "Not significant"
+volcanoData$regulated[volcanoData$PValue < 0.05 & volcanoData$logFC > 0] <- "Up regulated"
+volcanoData$regulated[volcanoData$PValue < 0.05 & volcanoData$logFC < 0] <- "Down regulated"
+
+volcanoData$vlabel <- NA
+
+volcanoData$vlabel[volcanoData$regulated != "Not significant"] <- volcanoData$geneName[volcanoData$regulated != "Not significant"]
+
+
+ggplot(data = volcanoData, aes(x = logFC, y = -log10(FDR), col = regulated, label = vlabel)) +
+  geom_point() +
+  theme_minimal() +
+  scale_color_manual(values=c("blue", "black", "red")) +
+  geom_vline(xintercept=c(-0.6, 0.6), col="red") +
+  geom_hline(yintercept=-log10(0.05), col="red") +
+  geom_text_repel()
+  
+
+```
+
+## 4. Heatmap
+```{r}
+heatmap_matrix <- normalized_count_data[,1:50]
+rownames(heatmap_matrix) <- normalized_count_data$ensembl_gene_id
+```
+Heat map before conducting any differential expression analysis
+```{r}
+heatmap_matrix <- t(scale(t(heatmap_matrix)))
+if(min(heatmap_matrix) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix)), 
+                      c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix), 0,
+        max(heatmap_matrix)), c("blue", "white", "red"))
+  }
+
+current_heatmap <- Heatmap(as.matrix(heatmap_matrix),
+      show_row_dend = TRUE,show_column_dend = TRUE, 
+      col=heatmap_col,show_column_names = TRUE, 
+      show_row_names = FALSE,show_heatmap_legend = TRUE)
+current_heatmap
+```
+MUC16 is the formal name of ca125. This is only for the instructors example.
+The example they give is on a positive case of having this MUC16 antigen
+vs not having it.
+```{r}
+ca125_pos_samples <- grep(colnames(normalized_count_data),
+                          pattern="POS_")
+ca125_neg_samples <- grep(colnames(normalized_count_data),
+                          pattern="NEG_")
+gene_of_interest <- which(
+  normalized_count_data$hgnc_symbol == "OAS1")
+```
+## Expression in all the positive and negative samples
+```{r}
+muc16_neg_samples <- 
+  t(normalized_count_data
+  [gene_of_interest,
+    ca125_neg_samples])
+colnames(muc16_neg_samples) <- 
+  c("neg_samples")
+muc16_neg_samples
+```
+```{r}
+muc16_pos_samples <- 
+  t(normalized_count_data
+   [gene_of_interest,
+     ca125_pos_samples])
+colnames(muc16_pos_samples) <- 
+  c("pos_samples")
+muc16_pos_samples
+```
+#Run t-test to see a difference in the two samples
+#Having a pvalue lower then 0.05 means there is no significant difference
+#Between the two samples.
+#My sample has less than 0.05 meaning thtere is a difference that is statistically significant
+```{r}
+t.test(x=t(muc16_pos_samples),y=t(muc16_neg_samples))
+```
+
+#doesn't work for our ttype cause the same patient is not in neg and pos
+```{r}
+pat_colors <- rainbow(10)
+pat_colors <- unlist(lapply(pat_colors,FUN=function(x){rep(x,2)}))
+limma::plotMDS(heatmap_matrix,
+               col = pat_colors )
+```
+
+Comparing not taking into account patient vs taking into account patient
+```{r}
+simple_model_pvalues <- data.frame(ensembl_id =
+  output_hits$ensembl_gene_id,
+  simple_pvalue=output_hits$P.Value)
+pat_model_pvalues <-  data.frame(ensembl_id =
+  output_hits_pat$ensembl_gene_id,
+  patient_pvalue = output_hits_pat$P.Value)
+two_models_pvalues <- merge(simple_model_pvalues,
+  pat_model_pvalues,by.x=1,by.y=1)
+two_models_pvalues$colour <- "black"
+two_models_pvalues$colour[
+  two_models_pvalues$simple_pvalue<0.05] <- "orange"
+two_models_pvalues$colour[
+  two_models_pvalues$patient_pvalue<0.05] <- "blue"
+two_models_pvalues$colour[
+  two_models_pvalues$simple_pvalue<0.05 &
+  two_models_pvalues$patient_pvalue<0.05] <- "red"
+```
+
+
+```{r}
+plot(two_models_pvalues$simple_pvalue,
+     two_models_pvalues$patient_pvalue,
+     col = two_models_pvalues$colour,
+     xlab = "simple model p-values",
+     ylab ="Patient model p-values", 
+     main="Simple vs Patient Limma")
+```
+
+
+
+To find muc16 in the plot, not sure if it is relevant for my assignment??
+```{r}
+ensembl_of_interest <- normalized_count_data$ensembl_gene_id[
+  which(normalized_count_data$hgnc_symbol == "OAS1")]
+two_models_pvalues$colour <- "grey"
+two_models_pvalues$colour[two_models_pvalues$ensembl_id==
+                            ensembl_of_interest] <- "red"
+plot(two_models_pvalues$simple_pvalue,
+     two_models_pvalues$patient_pvalue,
+     col = two_models_pvalues$colour,
+     xlab = "simple model p-values",
+     ylab ="Patient model p-values",
+      main="Simple vs Patient Limma")
+points(two_models_pvalues[which(
+  two_models_pvalues$ensembl_id == ensembl_of_interest),2:3], 
+       pch=20, col="red", cex=1.5)
+legend(0,1,legend=c("OAS1","rest"),
+       fill=c("red","grey"),cex = 0.7)
+```
+
+```{r}
+top_hits <- output_hits_pat$ensembl_gene_id[
+  output_hits_pat$P.Value<0.05]
+heatmap_matrix_tophits <- t(
+  scale(t(heatmap_matrix[
+    which(rownames(heatmap_matrix) %in% top_hits),])))
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0,
+      max(heatmap_matrix_tophits)), c("blue", "white", "red"))
+  }
+limma_heatmap <- Heatmap(as.matrix(heatmap_matrix_tophits),
+                           cluster_rows = TRUE,
+                           cluster_columns = TRUE,
+                               show_row_dend = TRUE,
+                               show_column_dend = TRUE, 
+                               col=heatmap_col,
+                               show_column_names = TRUE, 
+                               show_row_names = FALSE,
+                               show_heatmap_legend = TRUE,
+                               )
+limma_heatmap
+```
+
+
+
+Heat map for LIMMA
+```{r}
+top_hits <- output_hits_pat$ensembl_gene_id[
+  output_hits_pat$P.Value<0.05]
+heatmap_matrix_tophits <- t(
+  scale(t(heatmap_matrix[which(rownames(heatmap_matrix) 
+                               %in% top_hits),]))) 
+heatmap_matrix_tophits<- heatmap_matrix_tophits[,
+       c(grep(colnames(heatmap_matrix_tophits),pattern = "POS_"),
+         grep(colnames(heatmap_matrix_tophits),pattern = "NEG_"))]
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, 
+                              max(heatmap_matrix_tophits)), 
+                             c("blue", "white", "red"))
+  }
+limma_heatmap <- Heatmap(as.matrix(heatmap_matrix_tophits),
+                cluster_rows = TRUE,  show_row_dend = TRUE,
+                cluster_columns = FALSE,show_column_dend = FALSE,
+                col=heatmap_col,show_column_names = TRUE, 
+                show_row_names = FALSE,show_heatmap_legend = TRUE)
+limma_heatmap
+```
+
+
+QLF LIMMA comparison graph
+```{r}
+qlf_pat_model_pvalues <- data.frame(
+          ensembl_id = rownames(qlf_output_hits$table),
+          qlf_patient_pvalue=qlf_output_hits$table$PValue)
+limma_pat_model_pvalues <-  data.frame(
+          ensembl_id = output_hits_pat$ensembl_gene_id,
+          limma_patient_pvalue = output_hits_pat$P.Value)
+two_models_pvalues <- merge(qlf_pat_model_pvalues,
+                            limma_pat_model_pvalues,
+                            by.x=1,by.y=1)
+two_models_pvalues$colour <- "black"
+two_models_pvalues$colour[two_models_pvalues$qlf_patient_pvalue
+                          <0.05] <- "orange"
+two_models_pvalues$colour[two_models_pvalues$limma_patient_pvalue
+                          <0.05] <- "blue"
+two_models_pvalues$colour[two_models_pvalues$qlf_patient_pvalue
+                          <0.05 &                            
+two_models_pvalues$limma_patient_pvalue<0.05] <- "red"
+```
+
+```{r}
+plot(two_models_pvalues$qlf_patient_pvalue,
+     two_models_pvalues$limma_patient_pvalue,
+     col = two_models_pvalues$colour,
+     xlab = "QLF patient model p-values",
+     ylab ="Limma Patient model p-values",
+     main="QLF vs Limma")
+```
+
+```{r}
+top_hits <- rownames(qlf_output_hits$table)[
+  output_hits_pat$P.Value<0.05]
+heatmap_matrix_tophits <- t(
+  scale(t(heatmap_matrix[which(rownames(heatmap_matrix) 
+      %in% top_hits),])))
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, 
+                      max(heatmap_matrix_tophits)), 
+                      c("blue", "white", "red"))
+  }
+qlf_heatmap <- Heatmap(as.matrix(heatmap_matrix_tophits),
+                           cluster_rows = TRUE,
+                           cluster_columns = TRUE,
+                               show_row_dend = TRUE,
+                               show_column_dend = TRUE, 
+                               col=heatmap_col,
+                               show_column_names = TRUE, 
+                               show_row_names = FALSE,
+                               show_heatmap_legend = TRUE,
+                               )
+qlf_heatmap
+```
+
+
+Using QLF the heat map
+```{r}
+top_hits <- rownames(qlf_output_hits$table)[output_hits_pat$P.Value
+                                            <0.05] 
+heatmap_matrix_tophits <- t(
+  scale(t(heatmap_matrix[which(rownames(heatmap_matrix) 
+                               %in% top_hits),]))) 
+heatmap_matrix_tophits<- heatmap_matrix_tophits[,
+  c(grep(colnames(heatmap_matrix_tophits),pattern = "POS_"),
+    grep(colnames(heatmap_matrix_tophits),pattern = "NEG_"))]
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, 
+                               max(heatmap_matrix_tophits)), 
+                             c("blue", "white", "red"))
+  }
+qlf_heatmap <- Heatmap(as.matrix(heatmap_matrix_tophits),
+                           cluster_rows = TRUE,
+                           cluster_columns = FALSE,
+                               show_row_dend = TRUE,
+                               show_column_dend = FALSE,
+                               col=heatmap_col,
+                               show_column_names = TRUE, 
+                               show_row_names = FALSE,
+                               show_heatmap_legend = TRUE)
+qlf_heatmap
+```
+4.
+First the heat map using LIMMA we could see some patterns between the NEG, an POS.
+They seem to be clustering together a bit. Not all but most of the NEG results have a clustering of gene expression
+in the upper half of the genes.
+
+Using QLF the NEG seem to be clustering together also.
+
+
+Which ones are upregulated and downregulated
+```{r}
+length(which(qlf_output_hits$table$PValue < 0.05 
+             & qlf_output_hits$table$logFC > 0))
+
+length(which(qlf_output_hits$table$PValue < 0.05 
+             & qlf_output_hits$table$logFC < 0))
+```
+
+```{r}
+qlf_output_hits_withgn <- merge(randomSample[,51:52],qlf_output_hits, by.x=1, by.y = 0)
+#number higher the lower the pvalue, and if it is upregulated number is positive, and negative for downregulated
+qlf_output_hits_withgn[,"rank"] <- -log(qlf_output_hits_withgn$PValue,base =10) * sign(qlf_output_hits_withgn$logFC)
+qlf_output_hits_withgn <- qlf_output_hits_withgn[order(qlf_output_hits_withgn$rank),]
+upregulated_genes <- qlf_output_hits_withgn$`mergedDataNoDup$HUGO`[
+  which(qlf_output_hits_withgn$PValue < 0.05 
+             & qlf_output_hits_withgn$logFC > 0)]
+downregulated_genes <- qlf_output_hits_withgn$`mergedDataNoDup$HUGO`[
+  which(qlf_output_hits_withgn$PValue < 0.05 
+             & qlf_output_hits_withgn$logFC < 0)]
+write.table(x=upregulated_genes,
+            file=file.path("data","upregulated_genes.txt"),sep = "\t",
+            row.names = FALSE,col.names = FALSE,quote = FALSE)
+write.table(x=downregulated_genes,
+            file=file.path("data","downregulated_genes.txt"),sep = "\t",
+            row.names = FALSE,col.names = FALSE,quote = FALSE)
+write.table(x=data.frame(genename= qlf_output_hits_withgn$`mergedDataNoDup$HUGO`,F_stat= qlf_output_hits_withgn$rank),
+            file=file.path("data","ranked_genelist.txt"),sep = "\t",
+            row.names = FALSE,col.names = FALSE,quote = FALSE)
+```
+
+1. Which method did you choose and why?
+
+Using the g:Profiler since this method is updated frequently.
+
+
+2. What annotation data did you use and why? What version of the annotation are you using?
+Using the following annotations.
+GO: 
+Reactome:
+Wikipathways:
+
+3. How many genesets were returned with what thresholds?
+Threshold: 0.05
+Upregulated:
+GO: 379, REAC: 14, WP: 35
+Downregulated: 
+GO: 180, REAC: 61, WP: 11
+ALL:
+First 2000
+GO:444 REAC:86 WP:12
+
+4. Run the analysis using the up-regulated set of genes, and the down-regulated set of genes separately. How do these results compare to using the whole list (i.e all differentially expressed genes together vs. the up-regulated and down regulated differentially expressed genes separately)?
+
+The whole list when first ran with the first 2000 were most similar with the downregulated gene.The upregulated genes gave different results for example interferon related pathways compared to common cytoplasmic translation tthat came up in downregulated and the whole set.
+
+
