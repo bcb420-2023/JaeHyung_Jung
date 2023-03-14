@@ -69,7 +69,7 @@ library(ggplot2)
 library(ggrepel)
 ```
 ## Important Note
-On 2023/03/07 asked in lecture if I could randomly sample from data to reduce computation load. I was recommended that I should try and use the whole data. Tried to use whole data set but it was too large and would crash my R, and R studio. On 2023/03/14 posted in discussion board if I could random sample to reduce the load on the computer and reduce runtime errors. Did not get a reply by 2023/03/14 midnight so will be going with random sampling. After reducing the load did not get any crashes or errors I have gotten before with a large file.
+On 2023/03/07 asked in lecture if I could randomly sample from data to reduce computation load. I was recommended that I should try and use the whole data. Tried to use whole data set but it was too large and would crash my R, and R studio. On 2023/03/14 posted in discussion board if I could random sample to reduce the load on the computer and reduce runtime errors. Did not get a reply by 2023/03/14 morning so will be going with random sampling. After reducing the load did not get any crashes or errors I have gotten before with a large file.
 
 ## Download the data
 ### GSE152074 raw data supplemntary file downloaded
@@ -222,10 +222,14 @@ plotMeanVar(d, show.raw.vars = TRUE,
 # Differential Gene Expression
 
 Answer the following questions.
-1. Calculate p-values for each of the genes in your expression set. How many genes were significantly differential expressed? What thresholds did you use and why?
-2. Multiple hypothesis testing - correct your p-values using a multiple hypothesis correction method. Which method did you use? And Why? How many genes passed correction?
-3. Show the amount of differential expressed genes using an MA Plot or a Volcano plot. Highlight genes of interest.
-4. Visualize your top hits using a heat map. Do you conditions cluster together? Explain why or why not.
+
+ 1. Calculate p-values for each of the genes in your expression set. How many genes were significantly differential expressed? What thresholds did you use and why?
+
+ 2. Multiple hypothesis testing - correct your p-values using a multiple hypothesis correction method. Which method did you use? And Why? How many genes passed correction?
+
+ 3. Show the amount of differential expressed genes using an MA Plot or a Volcano plot. Highlight genes of interest.
+
+ 4. Visualize your top hits using a heat map. Do you conditions cluster together? Explain why or why not.
 
 ## 1. 2. Calculate P-Value, and Multiple hypothesis testing
 ## LIMMA
@@ -698,7 +702,11 @@ The first 2000 had similar values with downregulated gene.The upregulated genes 
  
   I found an article that states the SARS-CoV-2 positive thyroid tissue of patients  activated Type I and Type II interferon signaling. We can see in our gprofiler query of upregulated genes that there is a significant pathway of responding to type II interferon [@interferon].
   
-  
+
+# Compilation
+
+ Compiles as of 2023/03/14 using code in testingcode.txt.
+
 # References
 
 
