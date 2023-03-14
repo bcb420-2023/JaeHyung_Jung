@@ -23,7 +23,6 @@ bibliography: 'A2.bib'
 [@complex]
 [@ggplot2]
 [@ggrepel]
-[@lieberman2020vivo]
 [@gprofile]
 ```{r, message= FALSE}
 if (!requireNamespace("GEOmetadb", quietly = TRUE))
@@ -68,6 +67,7 @@ library(circlize)
 library(ggplot2)
 library(ggrepel)
 ```
+
 ## Important Note
 On 2023/03/07 asked in lecture if I could randomly sample from data to reduce computation load. I was recommended that I should try and use the whole data. Tried to use whole data set but it was too large and would crash my R, and R studio. On 2023/03/14 posted in discussion board if I could random sample to reduce the load on the computer and reduce runtime errors. Did not get a reply by 2023/03/14 morning so will be going with random sampling. After reducing the load did not get any crashes or errors I have gotten before with a large file.
 
@@ -80,6 +80,17 @@ fnames = rownames(sfiles)
 # there is only one supplemental file
 readData = read.table(fnames[1],header=TRUE, check.names = TRUE)
 ```
+## Data
+
+ Data from [@lieberman2020vivo].
+ 
+```{r}
+kable(readData[1:5, 1:5], type = "html", row.names = TRUE)
+```
+
+ Table 1: Original data contains HGNC annotation as row names. Column names have prefixes before their identifier number as either POS or NEG. Corresponding to either positive for COVID19 or negative.
+
+
 
 ## Assess
 
@@ -347,24 +358,34 @@ length(which(qlf_output_hits$table$FDR < 0.05))
 ### Answer to question
  LIMMA
  
- 1.Genes Significantly expressed(Not taking into account patient variability): 2892
+ 1.
+
+ **LIMMA**
+ 
+ Genes Significantly expressed(Not taking into account patient variability): 2892
  
  Genes Significantly expressed(Taking into account patient variability): 1325
  
  Threshold: 0.05; Used a globally accepted threshold value good for general purposed even in RNASEQ
 
- 2. Genes passed correction (Not taking into account patient variability): 473
+ **QLF**
+ Genes Significantly expressed: 1569
+ 
+ 2. 
+ 
+ **LIMMA**
+ 
+ Genes passed correction (Not taking into account patient variability): 473
  
  Genes passed correction (Taking into account patient variability): 0
 
- QLF
- 1.Genes Significantly expressed: 1569
+ **QLF**
  
- Threshold: 0.05; Used a globally accepted threshold value good for general purposed even in RNASEQ
-
- 2.Genes passed correction: 276
-
-
+ Genes passed correction: 276
+ 
+ **Which method did you use?**: Used the BH which is known as the Benjamini-Hochberg. Used this since sometimes the bonferroni correction is too stringent to be used.
+ 
+ 
 ## 3. Volcano plot
 Code copied from [@CRG]
 ```{r, message=FALSE, warning=FALSE}
@@ -418,6 +439,7 @@ current_heatmap
 ```
 
  Figure E: Heatmap of genes before conducting any differential analysis. On a scale from Blue to Red going negative to positive.
+ 
 ### LIMMA Heatmap
 ```{r}
 top_hits <- output_hits_pat$ensembl_gene_id[
@@ -689,18 +711,18 @@ write.table(x=data.frame(genename= qlf_output_hits_withgn$`mergedDataNoDup$HUGO`
 
 4. Run the analysis using the up-regulated set of genes, and the down-regulated set of genes separately. How do these results compare to using the whole list (i.e all differentially expressed genes together vs. the up-regulated and down regulated differentially expressed genes separately)?
 
-The first 2000 had similar values with downregulated gene.The upregulated genes gave different results for example interferon related pathways compared to common cytoplasmic translation that came up in downregulated and the whole set. The last 2000 I assumed it would be similar to upregulated however not many pathways seemed to be in common
+ The first 2000 had similar values with downregulated gene.The upregulated genes gave different results for example interferon related pathways compared to common cytoplasmic translation that came up in downregulated and the whole set. The last 2000 I assumed it would be similar to upregulated however not many pathways seemed to be in common
 
 
 # Interpretation
 
 1. Do the over-representation results support conclusions or mechanism discussed in the original paper?
  
- Upregulation shows in our Gprofiler query the response to type II interferon. In  our paper it mentions the "induction of interferon stimulated genes". Also "expression of interferon-responsive genes" [@lieberman2020vivo].
+ For the list of upregulation genes the Gprofiler query shows many pathways. One that was very commonly mentioned in the results is the response to type II interferon. This aligns heavily with our paper. It mentions in our paper that as the viral load was increased the "expression of interferon responsive gene including ACE2 increased" [@lieberman2020vivo]. This shows evidence of over-representation results showing support for conclusions shown in the paper.
  
 2. Can you find evidence, i.e. publications, to support some of the results that you see. How does this evidence support your results.
  
-  I found an article that states the SARS-CoV-2 positive thyroid tissue of patients  activated Type I and Type II interferon signaling. We can see in our gprofiler query of upregulated genes that there is a significant pathway of responding to type II interferon [@interferon].
+  I found an article that states the SARS-CoV-2 positive thyroid tissue of patients  activated Type I and Type II interferon signaling. We can see in our gprofiler query of upregulated genes that there is a statistically significant pathway for Type II interferon response [@interferon]. Not just this paper but it is becoming a common theme of Type II interferon signaling is increased due to COVID19.
   
 
 # Compilation
