@@ -9,7 +9,7 @@ output:
   html_notebook:
     toc: yes
     toc_depth: 2
-bibliography: 'A2.bib'
+bibliography: 'A3.bib'
 ---
 
 
@@ -68,7 +68,7 @@ library(ggrepel)
 ```
 
 ## Download the data
-### GSE152074 raw data supplemntary file downloaded
+### GSE152074 raw data supplementary file downloaded
 
 ```{r, message=FALSE}
 sfiles = getGEOSuppFiles('GSE152075')
@@ -332,117 +332,162 @@ close(tc)
 rx = gregexpr("(?<=<a href=\")(.*.GOBP_AllPathways_no_GO_iea.*.)(.gmt)(?=\">)", contents,
     perl = TRUE)
 gmt_file = unlist(regmatches(contents, rx))
-dest_gmt_file <- file.path(data_dir, gmt_file)
 download.file(paste(gmt_url, gmt_file, sep = ""), "bader_lab.gmt")
 ```
 
-Conduct non-thresholded gene set enrichment analysis using the ranked set of genes from Assignment #2.
+## Conduct non-thresholded gene set enrichment analysis using the ranked set of genes from Assignment #2. \ 
 
-1. What method did you use? What genesets did you use? Make sure to specify versions and cite your methods.
-I used the GSEA desktop application to run GSEA  Subramanian, Tamayo, et al. (2005, PNAS) and Mootha, Lindgren, et al. (2003, Nature Genetics). 
-I used the genesets from the bader lab extracted from the code above I used. Or it can be retrieved from here http://download.baderlab.org/EM_Genesets/current_release/Human/symbol/.
-2. Summarize your enrichment results.
-SARs-CoV-2 positive samples:
-4965 / 6074 gene sets are upregulated in phenotype na_pos
-442 gene sets are significant at FDR < 25%
-410 gene sets are significantly enriched at nominal pvalue < 1%
-662 gene sets are significantly enriched at nominal pvalue < 5%
-Top gene-set: HALLMARK_INTERFERON_ALPHA_RESPONSE%MSIGDBHALLMARK%HALLMARK_INTERFERON_ALPHA_RESPONSE
-Number of genes in leading edge: 80
-Top gene associated: CXCL11
+### 1. What method did you use? What genesets did you use? Make sure to specify versions and cite your methods. \ 
+I used the GSEA desktop application to run GSEA [@gsea1].  
+I used the genesets from the bader lab extracted from the code above I used. Or it can be retrieved from here http://download.baderlab.org/EM_Genesets/current_release/Human/symbol/.  
 
-SARs-CoV-2 negative samples:
-1109 / 6074 gene sets are upregulated in phenotype na_neg
-274 gene sets are significantly enriched at FDR < 25%
-196 gene sets are significantly enriched at nominal pvalue < 1%
-276 gene sets are significantly enriched at nominal pvalue < 5%
-Top gene-set: ENERGY DERIVATION BY OXIDATION OF ORGANIC COMPOUNDS%GOBP%GO:0015980
-Number of genes in leading edge: 165
-Top gene associated: TEFM
-3. How do these results compare to the results from the thresholded analysis in Assignment #2. Compare qualitatively. Is this a straight forward comparison? Why or why not?
-For the upregulated genes the top results are negative regulation of viral genome replication, negative regulation of viral process, response to type II interferon. downregulated we got cytoplasmic translation, positive regulation of respiratory burst, and intermediate filament-based process. I had too many genes so I couldn't run all the genes at once for my whole list. For upregulated in thresholded and non-thresholded they align a bit together by having interferon related pathway results. Other then that they don't seem to be similar. A common pathway in downregulated and and all of the genes for thresholded was a pathway related to cytoplasmic. However in non thresholded there were cytoplasmic related pathways but were very low in the list. It is not a straight forward comparison they both have different values as analysis. The thresholed could be more sensitive while the non-thresholded be more general.
+### 2. Summarize your enrichment results.\ 
+SARs-CoV-2 positive samples:  
+4965 / 6074 gene sets are upregulated in phenotype na_pos  
+442 gene sets are significant at FDR < 25%  
+410 gene sets are significantly enriched at nominal pvalue < 1%  
+662 gene sets are significantly enriched at nominal pvalue < 5%  
+Top gene-set: HALLMARK_INTERFERON_ALPHA_RESPONSE%MSIGDBHALLMARK%HALLMARK_INTERFERON_ALPHA_RESPONSE  
+Number of genes in leading edge: 80  
+Top gene associated: CXCL11  
 
+SARs-CoV-2 negative samples:  
+1109 / 6074 gene sets are upregulated in phenotype na_neg  
+274 gene sets are significantly enriched at FDR < 25%  
+196 gene sets are significantly enriched at nominal pvalue < 1%  
+276 gene sets are significantly enriched at nominal pvalue < 5%  
+Top gene-set: ENERGY DERIVATION BY OXIDATION OF ORGANIC COMPOUNDS%GOBP%GO:0015980  
+Number of genes in leading edge: 165  
+Top gene associated: TEFM  
 
-
-
-Using your results from your non-thresholded gene set enrichment analysis visualize your results in Cytoscape.
-
-red - upregulated from neg to pos, blue - downregulated in positive covid19 patietns compared to negative patients. 
-ranked list = depending on the expression of a gene in pos compared to neg
-
-## 1. 
-### Create an enrichment map - how many nodes and how many edges in the resulting map?
-379 Nodes
-1511 Edges
-
-### What thresholds were used to create this map? 
-FDR q-value cutoff: 0.1
-Analysis Type: GSEA
-Node cutoff: 0.1 
-Edge cutoff: 0.375
-
-### Make sure to record all thresholds. Include a screenshot of your network prior to manual layout.
- ![Figure: Screenshot of network prior to manual layout](./figure/priortomanual.png)
-
-### 2. Annotate your network - what parameters did you use to annotate the network. If you are using the default parameters make sure to list them as well.
-Used the auto annotate application in cytoscape. 
-Cluster algorithm: MCL Cluster
-Label Column: GS_DESCR
-Label Algorithm: WordCloud: Adjacent Words(default)
-Max words per label: 3
-Minimum word occurrence: 1
-Adjacent word bonus: 8
-Border Width: 3
-Opacity: 20%
-Font Scale: 20%
-
-
- ![Figure: Annotated network](./figure/annotatednetwork.png)
-
-### 3. Make a publication ready figure - include this figure with proper legends in your notebook.
-
-
-### 4. Collapse your network to a theme network. What are the major themes present in this analysis? Do they fit with the model? Are there any novel pathways or themes?
- ![Figure: Collapsed](./figure/collapsed.png)
-Major themes present:
-Upregulated:
-- GPCRS Rhodopsin ligand
-- Chemokine Migration chemotaxis
-- Cellular response necrosis
-- type II interferon
-- Migration monocyte chemotaxis
-- Surface receptor pattern
-
-Downregulated: 
-- gluconeogenesis glycolysis
-- superpathway warburg effect
-- srp protein synthesis 
-
-Present your results with the use of tables and screenshots. All figures should have appropriate figure legends.
-
-If using figures create a figures directory in your repo and make sure all references to the figures are relative in your Rmarkdown notebook.
-
-
-The most important aspect of the analysis is relating your results back to the initial data and question.
-
-1. Do the enrichment results support conclusions or mechanism discussed in the original paper? How do these results differ from the results you got from Assignment #2 thresholded methods.\ 
-
-This is a quotation taken from the original paper "SARS-CoV-2 induced a strong antiviral response with up-regulation of antiviral factors such as OAS1-3 and IFIT1-3 and T helper type 1 (Th1) chemokines CXCL9/10/11, as well as a reduction in transcription of ribosomal proteins" [@lieberman2020vivo]. They have found up-regulation in number of genes. The largest collapsed theme with 729 genes the GPCRS Rhodopsin ligand has two very large pathways named the GPCR ligand binding, and the CLASS A 1 (RHODOPSIN-LIKE RECEPTORS). Both of these gene-sets have at the top of their leading edge the CXCL 10/11/13 similar to the paper where they had up-regulation in the CXCL 9/10/11. In this sense the enrichment results support conclusions made in the original paper. Another example is the chemokine migration chemotaxis. In this major theme there are gene-sets involved in pathways such as the response to type II interferon, cellular response to type II interferon, . In the original paper they mention that as viral load increased the expression of interferon-responsive genes went up. Both of the two themes mentioned are up-regulated gene-sets. It seems that the enrichment results support the conclusion in the original paper. \ 
-Comparing from A2 threshold methods in the upregulated analysis for GO using g:profiler we also had results such as response to type II interferon, and cellular response to type II interferon. However we do not see a lot of gene-sets in the up-regulated section for chemokine related pathways. \ 
-
-For down regulated gene-sets for our network results from GSEA shows a major theme called srp protein synthesis. In this we have genesets such as the cytoplasmic translation. This gene-set is the largest gene-set inside srp protein synthesis and it is also the top result for down regulated genes gene-set for g:profiler using GO annotation. There are evident similarities but looking at the rest of the graph each analysis give results that each other do not have. \ 
+### 3. How do these results compare to the results from the thresholded analysis in Assignment #2. Compare qualitatively. Is this a straight forward comparison? Why or why not? \ 
+For the upregulated genes the top results are negative regulation of viral genome replication, negative regulation of viral process, response to type II interferon. downregulated we got cytoplasmic translation, positive regulation of respiratory burst, and intermediate filament-based process. For upregulated in thresholded and non-thresholded they align a bit together by having interferon related pathway results. Other then that they don't seem to be similar. A common pathway in downregulated and and all of the genes for thresholded was a pathway related to cytoplasmic. However in non thresholded there were cytoplasmic related pathways but were very low in the list. It is not a straight forward comparison they both have different values as analysis. The thresholded could be more sensitive while the non-thresholded be more general.  
 
 
 
-2. Can you find evidence, i.e. publications, to support some of the results that you see. How does this evidence support your result?
-In a paper they state that SARS-CoV-2 infected thyroid gland activated the interferon pathways aligning with our results in the upregulation. [@interferon]
+
+# Visualize your gene set Enrichment Analysis in Cytoscape \ 
 
 
-Using your networks and results from the previous section add one of the following:
-1. Add a post analysis to your main network using specific transcription factors, microRNAs or drugs. Include the reason why you chose the specific miRs, TFs or drugs (i.e publications indicating that they might be related to your model). What does this post analysis show?
-2, Choose a specific pathway or theme to investigate in more detail. Why did you choose this pathway or theme? Show the pathway or theme as a gene network or as a pathway diagram. Annotate the network or pathway with your original log fold expression values and p-values to show how it is effected in your model. (Hint: if the theme or pathway is not from database that has detailed mechanistic information like Reactome you can use apps like GeneMANIA or String to build the the interaction network.)
-3. Sometimes the most interesting information is the gene that has no information. In this type of pathway analysis we can only discover what we have already described previously in the literature or pathway databases. Often pathways found in one disease are applicable to other diseases so this technique can be very helpful. It is important to highlight any genes that are significantly differentially expressed in your model but are not annotated to any pathways. We refer to this set of genes as the dark matter.
-Include a heatmap of any significant genes that are not annotated to any of the pathways returned in the enrichment analysis.
-Include a heatmap of any significant genes that are not annotated to any pathways in entire set of pathways used for the analysis.
+### 1. \  
+### Create an enrichment map - how many nodes and how many edges in the resulting map? \ 
+379 Nodes  
+1511 Edges   
 
-#References
+### What thresholds were used to create this map?
+FDR q-value cutoff: 0.1  
+Analysis Type: GSEA  
+Node cutoff: 0.1  
+Edge cutoff: 0.375   
+
+### Make sure to record all thresholds. Include a screenshot of your network prior to manual layout. \ 
+
+ ![Figure 0: Screenshot of network prior to manual layout](./figure/priortomanual.png)
+
+### 2. Annotate your network - what parameters did you use to annotate the network. If you are using the default parameters make sure to list them as well.  
+Used the auto annotate application in cytoscape.  
+Cluster algorithm: MCL Cluster  
+Label Column: GS_DESCR  
+Label Algorithm: WordCloud: Adjacent Words(default)   
+Max words per label: 3  
+Minimum word occurrence: 1   
+Adjacent word bonus: 8  
+Border Width: 3  
+Opacity: 20%  
+Font Scale: 20%   
+
+
+ ![Figure 1: Annotated network](./figure/annotatednetwork.png)
+
+### 3. Make a publication ready figure - include this figure with proper legends in your notebook.  
+
+ ![Figure 2: Collapsed](./figure/publicationready.png)
+ 
+### 4. Collapse your network to a theme network. What are the major themes present in this analysis? Do they fit with the model? Are there any novel pathways or themes? \ 
+
+ ![Figure 3: Collapsed](./figure/collapsed.png)
+Major themes present:  
+
+Up-regulated:  
+
+- GPCRS Rhodopsin ligand  
+- Chemokine Migration chemotaxis   
+- Cellular response necrosis   
+- type II interferon   
+- Migration monocyte chemotaxis    
+- Surface receptor pattern   
+
+Down-regulated:  
+
+- gluconeogenesis glycolysis    
+- superpathway warburg effect    
+- srp protein synthesis  
+
+Do they fit with the model?   
+
+There are major themes that coincide with the model present in the original paper. Such as the type II interferon, or surface receptor pattern is something that is common in COVID-19.  
+
+Novel pathways?   
+There exists some novel pathways in the network such as the foxo-mediated transcription of cell cycle gene. Pathways such as these there are not a lot of studies on them. Not just this one but out of the many pathways there are some novel interesting pathways to look at.   
+
+
+# Interpretation and detailed view of results 
+
+The most important aspect of the analysis is relating your results back to the initial data and question.  
+
+### 1. Do the enrichment results support conclusions or mechanism discussed in the original paper? How do these results differ from the results you got from Assignment #2 thresholded methods.
+
+This is a quotation taken from the original paper "SARS-CoV-2 induced a strong antiviral response with up-regulation of antiviral factors such as OAS1-3 and IFIT1-3 and T helper type 1 (Th1) chemokines CXCL9/10/11, as well as a reduction in transcription of ribosomal proteins" [@lieberman2020vivo]. They have found up-regulation in number of genes. The largest collapsed theme with 729 genes the GPCRS Rhodopsin ligand has two very large pathways named the GPCR ligand binding, and the CLASS A 1 (RHODOPSIN-LIKE RECEPTORS). Both of these gene-sets have at the top of their leading edge the CXCL 10/11/13 similar to the paper where they had up-regulation in the CXCL 9/10/11. In this sense the enrichment results support conclusions made in the original paper. Another example is the chemokine migration chemotaxis. In this major theme there are gene-sets involved in pathways such as the response to type II interferon, cellular response to type II interferon, . In the original paper they mention that as viral load increased the expression of interferon-responsive genes went up. Both of the two themes mentioned are up-regulated gene-sets. It seems that the enrichment results support the conclusion in the original paper.  
+Comparing from A2 threshold methods in the upregulated analysis using g:profiler we also had results such as response to type II interferon, and cellular response to type II interferon. This aligns with our GSEA results. The significant pathways seem to be aligning but the minor ones that have weak significance is where the major differences are betweeen t he Assignment 2 thresholded methods and Assignment 3.  
+
+For down regulated gene-sets for our network results from GSEA shows a major theme called srp protein synthesis. In this we have genesets such as the cytoplasmic translation. This gene-set is the largest gene-set inside srp protein synthesis and it is also the top result for down regulated genes gene-set for g:profiler using GO annotation.  
+
+Comparing the model in original paper, Assignment 2 results, and Assignment 3 results the significant pathways coincide but the less significant pathways is where the change occurs.  
+
+
+
+### 2. Can you find evidence, i.e. publications, to support some of the results that you see. How does this evidence support your result? 
+In a paper they state that SARS-CoV-2 infected thyroid gland activated the interferon pathways aligning with our results in the up-regulation [@interferon]. Another paper explains the down regulation of cytoplasmic translation. SARS-CoV-2 suppresses host protein translation leading to a down regulation of cytoplasmic translation pathways [@cytoplasmic]. In both papers we can see supporting evidence for the results we got from the GSEA in upregulated and downregulated. 
+
+### 1. Add a post analysis to your main network using specific transcription factors, microRNAs or drugs. Include the reason why you chose the specific miRs, TFs or drugs (i.e publications indicating that they might be related to your model). What does this post analysis show? 
+Added a geneset for drugs from the bader lab. From this link (http://download.baderlab.org/EM_Genesets/current_release/Human/symbol/DrugTargets/Human_DrugBank_all_symbol.gmt).  
+
+I chose drugs because COVID-19 as of 2023 has no exact cure for the disease since the virus is constantly evolving. However having drug targets, and drugs to treat COVID-19 could be a very effective way of defeating the virus if we can reduce the risks of severity in COVID-19.  
+
+Conducted a exploratory analysis, and known signature analysis.  
+The exploratory analysis showed me the significant genesets and these are the ones I chose to focus on.  
+Mann-Whitney(Two-sided): 0.05  
+
+The most significant drug targets were Artenimol, Anisomycin, (S)-3-Phenyllactic Acid, Puromycin, NADH.  
+
+Using the Overlap is X percent of Sig gs: largest overlap drug targets is NADH, Aripiprazole, Loxapine, Ziprasidone, Aripiprazole Lauroxil  
+
+Hypergeometric Test: 0.25 The best test values are NADH, Aripiprazole, Loxapine, Ziprasidone, CYT997   
+
+In all 3 analysis we see that NADH is existent. NADH is the reduced form of NAD+. In the drugbank system they say that NADH has been useful in treating Parikinson's disease. NADH is a significant nutrient in other diseases but how about for COVID-19. Multiple papers shows that NAD+ deficiency might be one of the main causes of the disease severity in COVID-19 [@nadh]. This aligns with the significant gene sets that are seen in the cytoscape analysis.   
+
+
+ ![Figure 4: Drug Targets](./figure/drug.png)
+The figure is too large so none of the nodes are actually visible in cytoscape unless zoomed in.\ 
+Since it is difficult to view in network view. Here are the table views and just a few drug targets zoomed in for the analysis done. \ 
+
+ ![Figure 5: Drug Targets zoomed in Mann-Whitney network](./figure/mannnetwork.png)
+ 
+ 
+ 
+ ![Figure 6: Drug Targets Mann-Whitney table view](./figure/mann.png)
+ 
+ ![Figure 7: Drug Targets zoomed in hypergeometric](./figure/hypernetwork.png)
+ ![Figure 8: Drug Targets table hypergeometric](./figure/hypergeometric.png)
+ 
+ ![Figure 9: Drug Targets zoomed in overlap](./figure/overlapnetwork.png)
+ 
+ 
+ ![Figure 10: Drug Targets table overlap](./figure/overlap.png)
+ 
+
+# Compilation
+
+This code compiles with docker as of 04/04/2023. 
+
+# References 
