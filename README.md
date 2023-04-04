@@ -6,7 +6,12 @@ repository for bcb420 for Jae Hyung Jung
 
 https://github.com/bcb420-2023/JaeHyung_Jung/blob/main/Assignment1/A1.html
 
-## Assignment 1
+## Assignment 2
 ### HTML
 
 https://github.com/bcb420-2023/JaeHyung_Jung/blob/main/A2_JaeHyungJung.html
+
+## Assignment 3
+### HTML
+
+https://github.com/bcb420-2023/JaeHyung_Jung/blob/main/A3_JaeHyungJung.html
